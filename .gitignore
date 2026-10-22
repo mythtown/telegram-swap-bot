@@ -1,0 +1,42 @@
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Environment and sensitive secrets
+.env
+.env.local
+.env.*.local
+*.session
+*.session-journal
+scanner_session.session*
+auth_state.json
+
+# SQLite databases
+bot.db
+bot.db-journal
+bot.db-wal
+bot.db-shm
+*.sqlite
+*.sqlite3
+*.db
+
+# Archives & Logs
+*.zip
+*.tar.gz
+*.log
+logs/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
