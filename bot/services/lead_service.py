@@ -57,11 +57,7 @@ async def handle_student_join_request(
         channel = await crud.get_channel(session, target_channel_id)
 
     if not channel:
-        logger.info(f"Channel {target_channel_id} is not registered in our system. Approving directly.")
-        try:
-            await bot.approve_chat_join_request(chat_id=target_channel_id, user_id=student.id)
-        except Exception:
-            pass
+        logger.info(f"Channel {target_channel_id} is not registered in our system. Leaving request pending.")
         return
 
     creative = channel.creative
@@ -120,15 +116,8 @@ async def handle_student_join_request(
         logger.info(f"Sent DM lead magnet prompt to student {student.id}")
     except (TelegramForbiddenError, TelegramBadRequest) as e:
         logger.warning(
-            f"Cannot DM student {student.id} (user has not started bot: {e}). Auto-approving channel access."
+            f"Cannot DM student {student.id} (user has not started bot: {e}). Request remains pending for admin review."
         )
-        try:
-            await bot.approve_chat_join_request(
-                chat_id=channel.telegram_id,
-                user_id=student.id,
-            )
-        except Exception as approve_err:
-            logger.error(f"Failed to auto-approve student {student.id}: {approve_err}")
 
 
 async def confirm_and_deliver_gift(
@@ -148,11 +137,8 @@ async def confirm_and_deliver_gift(
     creative = channel.creative
     gift_title = creative.gift_title if creative else "Exclusive Study Materials"
 
-    # 1. Approve channel join request
-    try:
-        await bot.approve_chat_join_request(chat_id=channel_id, user_id=student_id)
-    except Exception as e:
-        logger.info(f"Join request approval notice for {student_id}: {e}")
+    # 1. Note: Join request is intentionally left PENDING for channel admin to approve manually!
+    logger.info(f"Student {student_id} claimed gift. Join request kept pending in channel {channel_id}.")
 
     # Build channel button
     channel_btn = None
@@ -168,11 +154,11 @@ async def confirm_and_deliver_gift(
     db_user = await crud.get_user(session, student_id)
     s_lang = db_user.language if (db_user and db_user.language) else "uz"
     if s_lang == "uz":
-        caption = f"🎁 <b>{gift_title}</b>\n\n✅ <b>{channel.title}</b> kanaliga qabul qilindingiz! Foydali bo'lsin."
+        caption = f"🎁 <b>{gift_title}</b>\n\n✅ Sovg'angiz yetkazildi! <b>{channel.title}</b> kanaliga a'zolik so'rovingiz admin tomonidan ko'rib chiqiladi."
     elif s_lang == "ru":
-        caption = f"🎁 <b>{gift_title}</b>\n\n✅ Заявка в канал <b>{channel.title}</b> одобрена! Пользуйтесь во благо."
+        caption = f"🎁 <b>{gift_title}</b>\n\n✅ Подарок доставлен! Ваша заявка в канал <b>{channel.title}</b> будет рассмотрена администратором."
     else:
-        caption = f"🎁 <b>{gift_title}</b>\n\n✅ Request to join <b>{channel.title}</b> approved! Enjoy learning."
+        caption = f"🎁 <b>{gift_title}</b>\n\n✅ Gift delivered! Your request to join <b>{channel.title}</b> will be reviewed by the admin."
 
     if creative:
         g_type = creative.gift_type

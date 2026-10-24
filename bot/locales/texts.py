@@ -88,6 +88,36 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ru": "🌐 Сменить язык",
         "en": "🌐 Change Language",
     },
+    "btn_referral": {
+        "uz": "👥 Taklif qilish",
+        "ru": "👥 Рефералы",
+        "en": "👥 Invite Friends",
+    },
+    "btn_join_channel": {
+        "uz": "📢 Kanalga a'zo bo'lish",
+        "ru": "📢 Подписаться на канал",
+        "en": "📢 Join Channel",
+    },
+    "btn_check_sub": {
+        "uz": "🔄 Tekshirish",
+        "ru": "🔄 Проверить",
+        "en": "🔄 Verify",
+    },
+    "btn_format_text": {
+        "uz": "📝 Klassik Matn (Faylsiz)",
+        "ru": "📝 Классический Текст (Без файлов)",
+        "en": "📝 Traditional Text (No Files)",
+    },
+    "btn_format_gift": {
+        "uz": "🎁 Sovg'ali / Faylli",
+        "ru": "🎁 С подарком / файлом",
+        "en": "🎁 Lead Magnet (With Gift)",
+    },
+    "btn_share_ref": {
+        "uz": "↗️ Do'stlarga yuborish",
+        "ru": "↗️ Поделиться с коллегами",
+        "en": "↗️ Share With Teachers",
+    },
 
     # ==================== WELCOME & START ====================
     "welcome_approved": {
@@ -672,6 +702,167 @@ STRINGS: Dict[str, Dict[str, str]] = {
             "⚡ <b>Pool Channels:</b> {pool}\n"
             "🤝 <b>Active Deals:</b> {active_deals}\n"
             "📥 <b>Total Leads:</b> {leads}"
+        ),
+    },
+
+    # ==================== MANDATORY SUBSCRIPTION ====================
+    "mandatory_sub_prompt": {
+        "uz": (
+            "📢 <b>Rasmiy kanalimizga a'zo bo'ling!</b>\n\n"
+            "EduSwap platformasidan foydalanish uchun rasmiy kanalimizga obuna bo'lishingiz lozim.\n\n"
+            "Kanalga a'zo bo'lgach, pastdagi <b>Tekshirish</b> tugmasini bosing:"
+        ),
+        "ru": (
+            "📢 <b>Подпишитесь на наш официальный канал!</b>\n\n"
+            "Чтобы использовать платформу EduSwap, необходимо подписаться на наш канал обновлений.\n\n"
+            "После подписки нажмите кнопку <b>Проверить</b> ниже:"
+        ),
+        "en": (
+            "📢 <b>Join Our Official Channel!</b>\n\n"
+            "To access the EduSwap platform, please subscribe to our official updates channel.\n\n"
+            "After joining, tap the <b>Verify</b> button below:"
+        ),
+    },
+    "sub_not_joined_alert": {
+        "uz": "⚠️ Siz hali kanalga a'zo bo'lmadingiz! Iltimos, avval kanalga obuna bo'ling.",
+        "ru": "⚠️ Вы ещё не подписались на канал! Пожалуйста, подпишитесь на канал.",
+        "en": "⚠️ You have not joined the channel yet! Please subscribe first.",
+    },
+    "sub_confirmed_succ": {
+        "uz": "✅ A'zolik tasdiqlandi! Xush kelibsiz.",
+        "ru": "✅ Подписка подтверждена! Добро пожаловать.",
+        "en": "✅ Subscription confirmed! Welcome.",
+    },
+
+    # ==================== CREATIVE FORMATS ====================
+    "choose_creative_format": {
+        "uz": (
+            "📝 <b>Reklama formatini tanlang:</b>\n\n"
+            "1️⃣ <b>Klassik Matn:</b> An'anaviy Telegram reklamasi — matn, emojilar va kanalingiz havolalari (faylsiz).\n\n"
+            "2️⃣ <b>Sovg'ali / Faylli:</b> Matn + sovg'a fayli (PDF/ZIP/rasm) — talabalar a'zo bo'lgach avtomatik sovg'a beriladi."
+        ),
+        "ru": (
+            "📝 <b>Выберите формат рекламного поста:</b>\n\n"
+            "1️⃣ <b>Классический Текст:</b> Традиционная реклама в Telegram — текст, эмодзи и ссылки на ваш канал (без файлов).\n\n"
+            "2️⃣ <b>С подарком / файлом:</b> Текст + обучающий файл (PDF/ZIP/фото) — ученики получают файл при подписке."
+        ),
+        "en": (
+            "📝 <b>Select Ad Creative Format:</b>\n\n"
+            "1️⃣ <b>Traditional Text Ad:</b> Standard Telegram promo — text, emojis, and your channel links (no files needed).\n\n"
+            "2️⃣ <b>Lead Magnet Ad:</b> Text + study material file (PDF/ZIP/photo) — delivered to students upon joining."
+        ),
+    },
+    "step_text_only_prompt": {
+        "uz": (
+            "📝 <b>Klassik reklama postingizni yuboring:</b>\n\n"
+            "Matn ichida kanalingiz havolasi, sarlavhalar va kerakli ma'lumotlarni yozing.\n"
+            "<i>(Xohlasangiz, matnga rasm yoki video biriktirib yuborishingiz mumkin)</i>"
+        ),
+        "ru": (
+            "📝 <b>Отправьте ваш классический рекламный пост:</b>\n\n"
+            "Добавьте текст, ссылки на ваш канал и любое форматирование.\n"
+            "<i>(Вы также можете прикрепить одно фото или видео к тексту)</i>"
+        ),
+        "en": (
+            "📝 <b>Send your traditional promotional post:</b>\n\n"
+            "Include your channel link, formatting, and message.\n"
+            "<i>(You may also attach a single photo or video to the text)</i>"
+        ),
+    },
+
+    # ==================== REFERRAL SYSTEM (ANTI-NAKRUTKA) ====================
+    "referral_dashboard": {
+        "uz": (
+            "👥 <b>Do'stlarni taklif qilish (Referal dasturi)</b>\n\n"
+            "🔗 <b>Sizning shaxsiy taklif havolangiz:</b>\n"
+            "<code>{link}</code>\n\n"
+            "📊 <b>Ko'rsatkichlaringiz:</b>\n"
+            "• 👤 <b>Jami o'tganlar:</b> {total} ta\n"
+            "• 🎓 <b>Kanal qo'shgan ustozlar:</b> {qualified}/{target} ta\n\n"
+            "🎁 <b>Mukofot:</b> {target} ta faol kanal egasini taklif qiling va <b>{days} kunlik bepul VIP</b> ga ega bo'ling!\n\n"
+            "🛡 <i>Anti-Nakrutka: Soxta botlar yoki bo'sh akkauntlar hisoblanmaydi. Ball faqat taklif qilingan do'stingiz haqiqiy kanal qo'shganda beriladi!</i>"
+        ),
+        "ru": (
+            "👥 <b>Пригласить коллег (Реферальная программа)</b>\n\n"
+            "🔗 <b>Ваша личная ссылка:</b>\n"
+            "<code>{link}</code>\n\n"
+            "📊 <b>Ваш прогресс:</b>\n"
+            "• 👤 <b>Всего переходов:</b> {total}\n"
+            "• 🎓 <b>Учителей с каналом:</b> {qualified}/{target}\n\n"
+            "🎁 <b>Награда:</b> Пригласите {target} владельцев каналов и получите <b>{days} дней VIP бесплатно</b>!\n\n"
+            "🛡 <i>Анти-Накрутка: Фейковые боты не засчитываются. Балл начисляется только когда приглашенный добавляет реальный канал!</i>"
+        ),
+        "en": (
+            "👥 <b>Invite Fellow Teachers (Referral Program)</b>\n\n"
+            "🔗 <b>Your Personal Referral Link:</b>\n"
+            "<code>{link}</code>\n\n"
+            "📊 <b>Your Progress:</b>\n"
+            "• 👤 <b>Total Clicks:</b> {total}\n"
+            "• 🎓 <b>Verified Channel Owners:</b> {qualified}/{target}\n\n"
+            "🎁 <b>Reward:</b> Invite {target} active channel owners to unlock <b>{days} Days of Free VIP</b>!\n\n"
+            "🛡 <i>Anti-Nakrutka Shield: Spam bots and dummy accounts do not count. Only users who bind a real channel qualify!</i>"
+        ),
+    },
+    "referral_reward_congrats": {
+        "uz": (
+            "👑 <b>Tabriklaymiz! Bepul VIP tarif faollashtirildi!</b>\n\n"
+            "Siz {target} ta faol kanal egasini taklif qildingiz va <b>{days} kunlik VIP</b> ga ega bo'ldingiz!\n\n"
+            "• ⚡ Cheksiz o'zaro reklamalar\n"
+            "• ✉ Talabalarga shaxsiy xabar (DM Rassilka)\n"
+            "• 📥 Lidlar bazasini Excel formatida yuklash\n"
+            "• 👑 100% belgisiz toza postlar"
+        ),
+        "ru": (
+            "👑 <b>Поздравляем! Бесплатный VIP активирован!</b>\n\n"
+            "Вы пригласили {target} активных владельцев каналов и получили <b>{days} дней VIP</b>!\n\n"
+            "• ⚡ Безлимитный взаимопиар\n"
+            "• ✉ Рассылка в личные сообщения учеников\n"
+            "• 📥 Выгрузка базы лидов в Excel\n"
+            "• 👑 Чистые посты без водяных знаков"
+        ),
+        "en": (
+            "👑 <b>Congratulations! Free VIP Status Activated!</b>\n\n"
+            "You invited {target} active channel owners and earned <b>{days} Days of VIP</b>!\n\n"
+            "• ⚡ Unlimited Auto-VP swaps\n"
+            "• ✉ Direct DM Broadcast to students\n"
+            "• 📥 1-Click Excel lead export\n"
+            "• 👑 100% clean whitelabel posts"
+        ),
+    },
+
+    # ==================== ANTI-CHEATING ALERTS ====================
+    "anti_cheat_victim_alert": {
+        "uz": (
+            "🚨 <b>Diqqat! Sherik kanal qoidani buzdi!</b>\n\n"
+            "Sherik kanal <b>{partner}</b> sizning reklama postingizni kelishilgan {target} ko'rishga yetmasdan oldin o'chirib yubordi!\n\n"
+            "🛡 <i>Sizni himoya qilish maqsadida, sizning kanalingizdagi sherik posti ham avtomatik o'chirildi va bitim bekor qilindi.</i>"
+        ),
+        "ru": (
+            "🚨 <b>Внимание! Нарушение со стороны партнера!</b>\n\n"
+            "Канал-партнер <b>{partner}</b> удалил ваш рекламный пост до достижения {target} просмотров!\n\n"
+            "🛡 <i>В целях вашей защиты рекламный пост партнера в вашем канале был также немедленно удален.</i>"
+        ),
+        "en": (
+            "🚨 <b>Warning! Partner Policy Violation!</b>\n\n"
+            "Partner channel <b>{partner}</b> deleted your promotional post before reaching the target {target} views!\n\n"
+            "🛡 <i>To protect your channel, their post has been immediately deleted from your channel as well.</i>"
+        ),
+    },
+    "anti_cheat_violator_alert": {
+        "uz": (
+            "⚠️ <b>Qoidabuzarlik qayd etildi!</b>\n\n"
+            "Siz <b>{partner}</b> kanali reklama postini kelishilgan {target} ko'rishga yetmasdan oldin o'chirib yubordingiz!\n\n"
+            "O'zaro kelishuv buzilganligi sababli bitim to'xtatildi va sherik kanaldan sizning postingiz ham olib tashlandi."
+        ),
+        "ru": (
+            "⚠️ <b>Зафиксировано нарушение правил!</b>\n\n"
+            "Вы удалили рекламный пост канала <b>{partner}</b> до достижения целевых {target} просмотров!\n\n"
+            "Сделка аннулирована, ваш пост в партнерском канале также был удален."
+        ),
+        "en": (
+            "⚠️ <b>Policy Violation Recorded!</b>\n\n"
+            "You deleted the promotional post of <b>{partner}</b> before reaching {target} views!\n\n"
+            "Due to this breach, the deal was cancelled and your post was also removed from the partner channel."
         ),
     },
 }

@@ -163,6 +163,52 @@ async def process_channel_input(
     )
     await state.clear()
 
+    # Anti-Nakrutka Referral Qualification:
+    try:
+        subs_count = await bot.get_chat_member_count(chat.id)
+    except Exception:
+        subs_count = 100
+
+    ref_res = await crud.check_and_qualify_referral(
+        session=session,
+        user_id=current_user.telegram_id,
+        channel_subscribers=subs_count,
+        min_subs=config.referral_min_subs,
+    )
+    if ref_res:
+        ref_id = ref_res["referrer_id"]
+        ref_lang = ref_res["referrer_lang"]
+        if ref_res.get("vip_awarded"):
+            congrats_text = t(
+                "referral_reward_congrats",
+                ref_lang,
+                target=ref_res["target"],
+                days=ref_res["days"],
+            )
+            try:
+                from bot.keyboards.common import main_reply_keyboard
+                ref_kb = main_reply_keyboard(lang=ref_lang, is_vip=True, is_admin=config.is_admin(ref_id))
+                await bot.send_message(chat_id=ref_id, text=congrats_text, reply_markup=ref_kb)
+            except Exception:
+                pass
+        else:
+            notice = (
+                f"🎉 Siz taklif qilgan ustoz ({current_user.full_name}) haqiqiy kanal qo'shdi! "
+                f"Sizga +1 ball berildi ({ref_res['qualified_count']}/{ref_res['target']})."
+                if ref_lang == "uz" else
+                (
+                    f"🎉 Приглашенный вами учитель ({current_user.full_name}) добавил активный канал! "
+                    f"Вам начислен +1 балл ({ref_res['qualified_count']}/{ref_res['target']})."
+                    if ref_lang == "ru" else
+                    f"🎉 Your invited teacher ({current_user.full_name}) added an active channel! "
+                    f"+1 point awarded ({ref_res['qualified_count']}/{ref_res['target']})."
+                )
+            )
+            try:
+                await bot.send_message(chat_id=ref_id, text=notice)
+            except Exception:
+                pass
+
     succ = t("channel_connected_succ", lang, title=channel.title, tier=channel.target_tier, scanner=config.scanner_username)
     markup = channel_details_keyboard(channel, has_creative=False, lang=lang)
     await message.answer(succ, reply_markup=markup)

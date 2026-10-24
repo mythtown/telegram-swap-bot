@@ -14,6 +14,7 @@ from bot.keyboards.common import (
     language_selector_keyboard,
     main_menu_keyboard,
     main_reply_keyboard,
+    mandatory_sub_keyboard,
     settings_keyboard,
 )
 from bot.locales.texts import LANGUAGES, t
@@ -29,6 +30,28 @@ def is_start_command(message: Message) -> bool:
     return cmd in ("/start", ".start", "/menu", ".menu")
 
 
+async def check_mandatory_subscription(
+    bot: Bot,
+    session: AsyncSession,
+    user_id: int,
+) -> Optional[str]:
+    """Returns mandatory channel if user is not subscribed. Returns None if subscribed or check disabled."""
+    if config.is_admin(user_id):
+        return None
+    channel = await crud.get_system_setting(session, "mandatory_channel", config.mandatory_channel)
+    if not channel or not channel.strip():
+        return None
+    channel = channel.strip()
+    try:
+        member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+        if member.status in ("creator", "administrator", "member", "restricted"):
+            return None
+    except Exception:
+        # If check fails or bot lacks permission, don't lock out users
+        return None
+    return channel
+
+
 async def show_user_start_dashboard(
     bot: Bot,
     session: AsyncSession,
@@ -39,27 +62,18 @@ async def show_user_start_dashboard(
 ) -> None:
     lang = getattr(current_user, "language", "uz") or "uz"
 
-    # Private Beta Access Gate
-    if config.private_mode and not current_user.is_approved and not config.is_admin(chat_id):
-        if current_user.request_pending:
-            text = t("private_gate_pending", lang, support=config.support_username)
-            markup = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text=t("btn_support", lang), url=f"https://t.me/{config.support_username}")],
-                    [InlineKeyboardButton(text=t("btn_check_status", lang), callback_data="access:check")],
-                ]
-            )
-        else:
-            text = t("private_gate_locked", lang, name=user_name)
-            markup = access_request_keyboard(lang)
-
+    # Mandatory Channel Subscription Check
+    unsub_channel = await check_mandatory_subscription(bot, session, chat_id)
+    if unsub_channel:
+        sub_text = t("mandatory_sub_prompt", lang)
+        sub_kb = mandatory_sub_keyboard(unsub_channel, lang=lang)
         if target_message:
             try:
-                await target_message.edit_text(text, reply_markup=markup)
+                await target_message.edit_text(sub_text, reply_markup=sub_kb)
                 return
             except Exception:
                 pass
-        await bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+        await bot.send_message(chat_id=chat_id, text=sub_text, reply_markup=sub_kb)
         return
 
     is_admin = config.is_admin(chat_id)
@@ -100,26 +114,33 @@ async def cmd_start(
 ) -> None:
     await state.clear()
 
-    # Deep-linking check (e.g. /start gift_DEALID_CHANNELID)
+    # Deep-linking check (e.g. /start gift_DEALID_CHANNELID or /start ref_USERID)
     args = message.text.split(maxsplit=1)
-    if len(args) > 1 and args[1].startswith("gift_"):
-        parts = args[1].split("_")
-        if len(parts) >= 3:
-            deal_id_str = parts[1]
-            try:
-                channel_id = int(parts[2])
-                await lead_service.confirm_and_deliver_gift(
-                    bot=bot,
-                    session=session,
-                    student_id=message.from_user.id,
-                    deal_id_str=deal_id_str,
-                    channel_id=channel_id,
-                    student_name=message.from_user.full_name or "Student",
-                    student_username=message.from_user.username,
-                )
-                return
-            except Exception:
-                pass
+    if len(args) > 1:
+        param = args[1].strip()
+        if param.startswith("gift_"):
+            parts = param.split("_")
+            if len(parts) >= 3:
+                deal_id_str = parts[1]
+                try:
+                    channel_id = int(parts[2])
+                    await lead_service.confirm_and_deliver_gift(
+                        bot=bot,
+                        session=session,
+                        student_id=message.from_user.id,
+                        deal_id_str=deal_id_str,
+                        channel_id=channel_id,
+                        student_name=message.from_user.full_name or "Student",
+                        student_username=message.from_user.username,
+                    )
+                    return
+                except Exception:
+                    pass
+        elif param.startswith("ref_"):
+            ref_str = param.replace("ref_", "")
+            if ref_str.isdigit() and int(ref_str) != message.from_user.id:
+                if not getattr(message.from_user, "is_bot", False):
+                    await crud.record_referral_invitation(session, message.from_user.id, int(ref_str))
 
     # First Start: Ask user to choose their preferred language first!
     if not current_user.language:
@@ -161,6 +182,77 @@ async def cb_initial_language(
         user_name=callback.from_user.full_name,
         target_message=callback.message,
     )
+
+
+@router.callback_query(F.data == "sub:check")
+async def cb_check_sub(
+    callback: CallbackQuery,
+    bot: Bot,
+    session: AsyncSession,
+    current_user: User,
+) -> None:
+    lang = getattr(current_user, "language", "uz") or "uz"
+    unsub_channel = await check_mandatory_subscription(bot, session, callback.from_user.id)
+    if unsub_channel:
+        await callback.answer(t("sub_not_joined_alert", lang), show_alert=True)
+        return
+
+    await callback.answer(t("sub_confirmed_succ", lang))
+    await show_user_start_dashboard(
+        bot=bot,
+        session=session,
+        current_user=current_user,
+        chat_id=callback.from_user.id,
+        user_name=callback.from_user.full_name,
+        target_message=callback.message,
+    )
+
+
+@router.message(F.text.in_(["👥 Taklif qilish", "👥 Рефералы", "👥 Invite Friends"]))
+@router.message(Command("ref", "referral"))
+@router.callback_query(F.data == "menu:referral")
+async def show_referral_center(
+    event: Message | CallbackQuery,
+    bot: Bot,
+    session: AsyncSession,
+    current_user: User,
+) -> None:
+    lang = getattr(current_user, "language", "uz") or "uz"
+    bot_info = await bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start=ref_{current_user.telegram_id}"
+
+    target_str = await crud.get_system_setting(session, "referral_target", str(config.referral_target))
+    days_str = await crud.get_system_setting(session, "referral_reward_days", str(config.referral_reward_days))
+    target = int(target_str) if target_str.isdigit() else config.referral_target
+    days = int(days_str) if days_str.isdigit() else config.referral_reward_days
+
+    text = t(
+        "referral_dashboard",
+        lang,
+        link=ref_link,
+        total=current_user.referrals_count or 0,
+        qualified=current_user.qualified_referrals_count or 0,
+        target=target,
+        days=days,
+    )
+
+    share_text = f"EduSwap - Telegram ta'lim kanallarini avtomatlashtirilgan o'zaro reklama qilish boti: {ref_link}"
+    share_url = f"https://t.me/share/url?url={ref_link}&text={share_text}"
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=t("btn_share_ref", lang), url=share_url)],
+            [InlineKeyboardButton(text=t("btn_back", lang), callback_data="menu:main")],
+        ]
+    )
+
+    if isinstance(event, CallbackQuery):
+        try:
+            await event.message.edit_text(text, reply_markup=markup)
+        except Exception:
+            await event.message.answer(text, reply_markup=markup)
+        await event.answer()
+    else:
+        await event.answer(text, reply_markup=markup)
 
 
 @router.message(Command("lang", "language"))

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.database import crud
 from bot.database.models import User
 from bot.keyboards.common import cancel_action_keyboard
-from bot.keyboards.creative_kb import skip_step_keyboard
+from bot.keyboards.creative_kb import creative_format_choice_keyboard, skip_step_keyboard
 from bot.locales.texts import t
 from bot.services import swap_engine
 from bot.states.states import CreativeState
@@ -29,22 +29,51 @@ async def cb_start_creative_edit(
 
     await state.clear()
     await state.update_data(channel_id=channel_id)
+
+    text = t("choose_creative_format", lang)
+    markup = creative_format_choice_keyboard(channel_id, lang=lang)
+    await callback.message.edit_text(text, reply_markup=markup)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("creative:format:"))
+async def cb_select_creative_format(
+    callback: CallbackQuery,
+    current_user: User,
+    state: FSMContext,
+) -> None:
+    lang = getattr(current_user, "language", "uz") or "uz"
+    parts = callback.data.split(":")
+    fmt = parts[2]  # 'text' or 'gift'
+    channel_id = int(parts[3])
+
+    creative_type = "text" if fmt == "text" else "lead_magnet"
+    await state.update_data(channel_id=channel_id, creative_type=creative_type)
     await state.set_state(CreativeState.waiting_for_ad_content)
 
-    text = t("step_ad_content", lang)
-    await callback.message.edit_text(text, reply_markup=cancel_action_keyboard(lang=lang, return_to=f"channel:view:{channel_id}"))
+    if creative_type == "text":
+        prompt = t("step_text_only_prompt", lang)
+    else:
+        prompt = t("step_ad_content", lang)
+
+    await callback.message.edit_text(
+        prompt,
+        reply_markup=cancel_action_keyboard(lang=lang, return_to=f"channel:view:{channel_id}")
+    )
     await callback.answer()
 
 
 @router.message(CreativeState.waiting_for_ad_content)
 async def process_ad_content(
     message: Message,
+    session: AsyncSession,
     state: FSMContext,
     current_user: User,
 ) -> None:
     lang = getattr(current_user, "language", "uz") or "uz"
     data = await state.get_data()
     channel_id = data["channel_id"]
+    creative_type = data.get("creative_type", "text")
 
     media_type = "text"
     media_file_id = None
@@ -80,6 +109,18 @@ async def process_ad_content(
         media_file_id=media_file_id,
         ad_text=ad_text,
     )
+
+    # If user selected Traditional Text Ad format, finish setup immediately!
+    if creative_type == "text":
+        await finish_text_creative_setup(
+            session=session,
+            state=state,
+            target_message=message,
+            lang=lang,
+        )
+        return
+
+    # Otherwise, Lead Magnet format requires button text and gift upload:
     await state.set_state(CreativeState.waiting_for_button_text)
 
     prompt = t("step_button_text", lang)
@@ -235,6 +276,70 @@ async def process_gift_title(
     )
 
 
+async def finish_text_creative_setup(
+    session: AsyncSession,
+    state: FSMContext,
+    target_message: Message,
+    lang: str = "uz",
+) -> None:
+    data = await state.get_data()
+    channel_id = data["channel_id"]
+
+    await crud.save_or_update_creative(
+        session=session,
+        channel_id=channel_id,
+        creative_type="text",
+        ad_text=data["ad_text"],
+        media_type=data["media_type"],
+        media_file_id=data.get("media_file_id"),
+        button_text="",
+        gift_type="none",
+        gift_file_id=None,
+        gift_name=None,
+        gift_text_content=None,
+        gift_title="",
+    )
+    await state.clear()
+
+    channel = await crud.get_channel(session, channel_id)
+    if lang == "uz":
+        success_text = (
+            f"✅ <b>Klassik reklama posti saqlandi!</b>\n\n"
+            f"📢 <b>Kanal:</b> {channel.title}\n"
+            f"📝 <b>Format:</b> An'anaviy matnli post (faylsiz)\n\n"
+            f"<i>Kanal o'zaro reklama (Auto-VP) uchun to'liq tayyor!</i>"
+        )
+        btn_preview = "👁 Postni ko'rish (Test)"
+        btn_channel = "📢 Kanal sozlamalari"
+    elif lang == "ru":
+        success_text = (
+            f"✅ <b>Классический рекламный пост сохранен!</b>\n\n"
+            f"📢 <b>Канал:</b> {channel.title}\n"
+            f"📝 <b>Формат:</b> Традиционный текстовый пост (без файлов)\n\n"
+            f"<i>Канал полностью готов к взаимопиару (Auto-VP)!</i>"
+        )
+        btn_preview = "👁 Предпросмотр поста"
+        btn_channel = "📢 Настройки канала"
+    else:
+        success_text = (
+            f"✅ <b>Traditional ad post saved!</b>\n\n"
+            f"📢 <b>Channel:</b> {channel.title}\n"
+            f"📝 <b>Format:</b> Traditional text ad (no files)\n\n"
+            f"<i>Channel is ready for Auto-VP matchmaking!</i>"
+        )
+        btn_preview = "👁 Preview Ad Post"
+        btn_channel = "📢 Channel Settings"
+
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=btn_preview, callback_data=f"creative:preview:{channel_id}")],
+            [InlineKeyboardButton(text=btn_channel, callback_data=f"channel:view:{channel_id}")],
+            [InlineKeyboardButton(text=t("btn_back", lang), callback_data="menu:main")],
+        ]
+    )
+    await target_message.answer(success_text, reply_markup=markup)
+
+
 async def finish_creative_setup(
     session: AsyncSession,
     state: FSMContext,
@@ -249,6 +354,7 @@ async def finish_creative_setup(
     await crud.save_or_update_creative(
         session=session,
         channel_id=channel_id,
+        creative_type="lead_magnet",
         ad_text=data["ad_text"],
         media_type=data["media_type"],
         media_file_id=data.get("media_file_id"),

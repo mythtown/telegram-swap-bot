@@ -27,16 +27,18 @@ def main_reply_keyboard(
         ],
         [
             KeyboardButton(text=t("btn_stats", lang)),
-            KeyboardButton(text=t("btn_settings", lang)),
+            KeyboardButton(text=t("btn_referral", lang)),
         ],
         [
-            KeyboardButton(text=t("btn_broadcast", lang)),
+            KeyboardButton(text=t("btn_settings", lang)),
             KeyboardButton(text=t("btn_support", lang)),
         ],
     ]
 
     extra_row = []
-    if not is_vip:
+    if is_vip:
+        extra_row.append(KeyboardButton(text=t("btn_broadcast", lang)))
+    else:
         extra_row.append(KeyboardButton(text=t("btn_vip", lang)))
     if is_admin:
         extra_row.append(KeyboardButton(text=t("btn_admin", lang)))
@@ -45,6 +47,16 @@ def main_reply_keyboard(
         keyboard.append(extra_row)
 
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+
+def mandatory_sub_keyboard(channel: str, lang: str = "uz") -> InlineKeyboardMarkup:
+    clean_username = channel.lstrip("@").strip()
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=t("btn_join_channel", lang), url=f"https://t.me/{clean_username}")],
+            [InlineKeyboardButton(text=t("btn_check_sub", lang), callback_data="sub:check")],
+        ]
+    )
 
 
 def main_menu_keyboard(
@@ -63,7 +75,7 @@ def main_menu_keyboard(
             InlineKeyboardButton(text=t("btn_stats", lang), callback_data="menu:leads"),
         ],
         [
-            InlineKeyboardButton(text=t("btn_broadcast", lang), callback_data="menu:broadcast"),
+            InlineKeyboardButton(text=t("btn_referral", lang), callback_data="menu:referral"),
             InlineKeyboardButton(
                 text="💎 VIP" if is_vip else t("btn_vip", lang),
                 callback_data="menu:vip_info",
@@ -74,6 +86,8 @@ def main_menu_keyboard(
             InlineKeyboardButton(text=t("btn_support", lang), callback_data="menu:support"),
         ],
     ]
+    if is_vip:
+        buttons.insert(3, [InlineKeyboardButton(text=t("btn_broadcast", lang), callback_data="menu:broadcast")])
     if is_admin:
         buttons.append([InlineKeyboardButton(text=t("btn_admin", lang), callback_data="admin:menu")])
 

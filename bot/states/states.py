@@ -23,3 +23,6 @@ class AdminState(StatesGroup):
     waiting_for_vip_user = State()
     waiting_for_vip_days = State()
     waiting_for_whitelist_user = State()
+    waiting_for_mandatory_channel = State()
+    waiting_for_ref_target = State()
+    waiting_for_ref_days = State()

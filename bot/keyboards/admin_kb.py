@@ -9,6 +9,8 @@ def admin_panel_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
     quota_txt = "🔄 Kvotalarni yangilash" if lang == "uz" else ("🔄 Сброс квот" if lang == "ru" else "🔄 Reset Quotas")
     grant_txt = "👑 VIP Berish" if lang == "uz" else ("👑 Выдать VIP" if lang == "ru" else "👑 Grant VIP")
     revoke_txt = "🚫 VIP Bekor qilish" if lang == "uz" else ("🚫 Забрать VIP" if lang == "ru" else "🚫 Revoke VIP")
+    m_chan_txt = "📢 Majburiy kanal" if lang == "uz" else ("📢 Обяз. канал" if lang == "ru" else "📢 Mandatory Channel")
+    ref_mgr_txt = "👥 Referal tizimi" if lang == "uz" else ("👥 Рефералы" if lang == "ru" else "👥 Referrals")
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -23,6 +25,10 @@ def admin_panel_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text=grant_txt, callback_data="admin:grant_vip"),
                 InlineKeyboardButton(text=revoke_txt, callback_data="admin:revoke_vip"),
+            ],
+            [
+                InlineKeyboardButton(text=m_chan_txt, callback_data="admin:setting:channel"),
+                InlineKeyboardButton(text=ref_mgr_txt, callback_data="admin:setting:referrals"),
             ],
             [
                 InlineKeyboardButton(text=t("btn_refresh", lang), callback_data="admin:menu"),

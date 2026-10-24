@@ -444,3 +444,195 @@ async def cmd_quick_force_cleanup(
         return
     cleaned = await swap_engine.cleanup_stale_deals(bot, session, max_hours=config.deal_timeout_hours)
     await message.answer(f"🧹 Cleaned up {cleaned} stale deals.")
+
+
+# ==================== MANDATORY CHANNEL SETTING ====================
+
+@router.callback_query(F.data == "admin:setting:channel")
+async def cb_admin_mandatory_channel(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    if not is_admin_filter(callback.from_user.id):
+        return
+    cur_channel = await crud.get_system_setting(session, "mandatory_channel", config.mandatory_channel)
+    chan_display = f"<code>{cur_channel}</code>" if cur_channel else "<i>O'chirilgan (Disabled)</i>"
+
+    text = (
+        f"📢 <b>Majburiy Obuna Kanali</b>\n\n"
+        f"Hozirgi kanal: {chan_display}\n\n"
+        f"Kanalni o'zgartirish uchun kanal usernameni yuboring (masalan: <code>@eduswap_news</code>) "
+        f"yoki o'chirib qo'yish uchun pastdagi tugmani bosing:"
+    )
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Yangi kanal kiritish", callback_data="admin:channel:edit")],
+            [InlineKeyboardButton(text="🚫 O'chirib qo'yish (Off)", callback_data="admin:channel:disable")],
+            [InlineKeyboardButton(text="« Orqaga", callback_data="admin:menu")],
+        ]
+    )
+    await callback.message.edit_text(text, reply_markup=markup)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:channel:edit")
+async def cb_prompt_mandatory_channel(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    if not is_admin_filter(callback.from_user.id):
+        return
+    await state.set_state(AdminState.waiting_for_mandatory_channel)
+    await callback.message.edit_text(
+        "📢 Kanal username yoki ID sini yuboring (masalan: <code>@eduswap_news</code>):",
+        reply_markup=cancel_action_keyboard("admin:setting:channel"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminState.waiting_for_mandatory_channel)
+async def process_mandatory_channel(
+    message: Message,
+    session: AsyncSession,
+    state: FSMContext,
+) -> None:
+    if not is_admin_filter(message.from_user.id):
+        return
+    val = message.text.strip()
+    if val.lower() in ("off", "none", "0", "disable"):
+        val = ""
+    await crud.set_system_setting(session, "mandatory_channel", val)
+    await state.clear()
+    msg = f"✅ Majburiy obuna kanali o'rnatildi: <code>{val}</code>" if val else "🚫 Majburiy obuna o'chirildi."
+    await message.answer(msg, reply_markup=admin_panel_keyboard())
+
+
+@router.callback_query(F.data == "admin:channel:disable")
+async def cb_disable_mandatory_channel(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    if not is_admin_filter(callback.from_user.id):
+        return
+    await crud.set_system_setting(session, "mandatory_channel", "")
+    await callback.answer("Majburiy kanal o'chirildi!", show_alert=True)
+    text, markup = await render_admin_dashboard(session)
+    await callback.message.edit_text(text, reply_markup=markup)
+
+
+# ==================== REFERRAL CONTROLS ====================
+
+@router.callback_query(F.data == "admin:setting:referrals")
+async def cb_admin_referrals_menu(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    if not is_admin_filter(callback.from_user.id):
+        return
+    enabled_str = await crud.get_system_setting(session, "referral_enabled", "true")
+    target_str = await crud.get_system_setting(session, "referral_target", str(config.referral_target))
+    days_str = await crud.get_system_setting(session, "referral_reward_days", str(config.referral_reward_days))
+
+    is_enabled = enabled_str.lower() in ("true", "1", "yes")
+    status_icon = "🟢 Yoqilgan (ON)" if is_enabled else "🔴 O'chirilgan (OFF)"
+    toggle_txt = "🔴 O'chirish" if is_enabled else "🟢 Yoqish"
+
+    text = (
+        f"👥 <b>Referal Tizimi Boshqaruvi</b>\n\n"
+        f"• <b>Holat:</b> {status_icon}\n"
+        f"• <b>Talab qilingan do'stlar:</b> <code>{target_str} ta faol kanal</code>\n"
+        f"• <b>Mukofot:</b> <code>{days_str} kun VIP</code>\n"
+        f"• <b>Anti-Nakrutka:</b> Faol (kamida 50 a'zoli kanal talab qilinadi)\n\n"
+        f"<i>O'zgartirish uchun tugmalardan foydalaning:</i>"
+    )
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=toggle_txt, callback_data="admin:ref:toggle")],
+            [
+                InlineKeyboardButton(text="🎯 Rejani o'zgartirish", callback_data="admin:ref:set_target"),
+                InlineKeyboardButton(text="⏳ VIP kunini o'zgartirish", callback_data="admin:ref:set_days"),
+            ],
+            [InlineKeyboardButton(text="« Orqaga", callback_data="admin:menu")],
+        ]
+    )
+    await callback.message.edit_text(text, reply_markup=markup)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:ref:toggle")
+async def cb_admin_toggle_referrals(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    if not is_admin_filter(callback.from_user.id):
+        return
+    cur = await crud.get_system_setting(session, "referral_enabled", "true")
+    new_val = "false" if cur.lower() in ("true", "1", "yes") else "true"
+    await crud.set_system_setting(session, "referral_enabled", new_val)
+    await callback.answer(f"Referal holati: {new_val}", show_alert=True)
+    await cb_admin_referrals_menu(callback, session)
+
+
+@router.callback_query(F.data == "admin:ref:set_target")
+async def cb_prompt_ref_target(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    if not is_admin_filter(callback.from_user.id):
+        return
+    await state.set_state(AdminState.waiting_for_ref_target)
+    await callback.message.edit_text(
+        "🎯 Bitta foydalanuvchi VIP olishi uchun necha kishini taklif qilishi kerak? (Masalan: <code>2</code>, <code>3</code>, <code>5</code>):",
+        reply_markup=cancel_action_keyboard("admin:setting:referrals"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminState.waiting_for_ref_target)
+async def process_ref_target(
+    message: Message,
+    session: AsyncSession,
+    state: FSMContext,
+) -> None:
+    if not is_admin_filter(message.from_user.id):
+        return
+    if not message.text or not message.text.strip().isdigit():
+        await message.answer("⚠️ Faqat son kiriting (masalan: 2):")
+        return
+    val = int(message.text.strip())
+    await crud.set_system_setting(session, "referral_target", str(val))
+    await state.clear()
+    await message.answer(f"✅ Yangi referal rejasi saqlandi: <b>{val} ta kanal</b>", reply_markup=admin_panel_keyboard())
+
+
+@router.callback_query(F.data == "admin:ref:set_days")
+async def cb_prompt_ref_days(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    if not is_admin_filter(callback.from_user.id):
+        return
+    await state.set_state(AdminState.waiting_for_ref_days)
+    await callback.message.edit_text(
+        "⏳ Referal mukofoti necha kunlik VIP bo'lsin? (Masalan: <code>7</code>, <code>14</code>, <code>30</code>):",
+        reply_markup=cancel_action_keyboard("admin:setting:referrals"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminState.waiting_for_ref_days)
+async def process_ref_days(
+    message: Message,
+    session: AsyncSession,
+    state: FSMContext,
+) -> None:
+    if not is_admin_filter(message.from_user.id):
+        return
+    if not message.text or not message.text.strip().isdigit():
+        await message.answer("⚠️ Faqat son kiriting (masalan: 7):")
+        return
+    val = int(message.text.strip())
+    await crud.set_system_setting(session, "referral_reward_days", str(val))
+    await state.clear()
+    await message.answer(f"✅ Yangi VIP mukofot muddati saqlandi: <b>{val} kun VIP</b>", reply_markup=admin_panel_keyboard())
+

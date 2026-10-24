@@ -32,7 +32,22 @@ class Config:
         default_factory=lambda: os.getenv("SUPPORT_USERNAME", "")
     )
     private_mode: bool = field(
-        default_factory=lambda: os.getenv("PRIVATE_MODE", "true").lower() in ("true", "1", "yes")
+        default_factory=lambda: os.getenv("PRIVATE_MODE", "false").lower() in ("true", "1", "yes")
+    )
+    mandatory_channel: str = field(
+        default_factory=lambda: os.getenv("MANDATORY_CHANNEL", "")
+    )
+    referral_enabled: bool = field(
+        default_factory=lambda: os.getenv("REFERRAL_ENABLED", "true").lower() in ("true", "1", "yes")
+    )
+    referral_target: int = field(
+        default_factory=lambda: int(os.getenv("REFERRAL_TARGET", "2"))
+    )
+    referral_reward_days: int = field(
+        default_factory=lambda: int(os.getenv("REFERRAL_REWARD_DAYS", "7"))
+    )
+    referral_min_subs: int = field(
+        default_factory=lambda: int(os.getenv("REFERRAL_MIN_SUBS", "50"))
     )
     matchmaking_interval_seconds: int = field(
         default_factory=lambda: int(os.getenv("MATCHMAKING_INTERVAL_SECONDS", "60"))

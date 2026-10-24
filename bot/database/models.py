@@ -27,11 +27,15 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), default="")
     language: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default=None)  # 'uz', 'ru', 'en' or None if new
     is_vip: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_approved: Mapped[bool] = mapped_column(Boolean, default=False)  # Whitelist / Private access
+    is_approved: Mapped[bool] = mapped_column(Boolean, default=True)  # Public access default
     request_pending: Mapped[bool] = mapped_column(Boolean, default=False)
     vip_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     swaps_this_week: Mapped[int] = mapped_column(Integer, default=0)
     quota_reset_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    referred_by_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    referrals_count: Mapped[int] = mapped_column(Integer, default=0)
+    qualified_referrals_count: Mapped[int] = mapped_column(Integer, default=0)
+    has_qualified_referral: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     channels: Mapped[list["Channel"]] = relationship("Channel", back_populates="owner", cascade="all, delete-orphan")
@@ -82,6 +86,7 @@ class Creative(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     channel_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("channels.telegram_id", ondelete="CASCADE"), unique=True)
+    creative_type: Mapped[str] = mapped_column(String(16), default="text")  # 'text' (Traditional Text) or 'lead_magnet'
     ad_text: Mapped[str] = mapped_column(Text)
     media_type: Mapped[str] = mapped_column(String(16), default="text")  # 'text', 'photo', 'video'
     media_file_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -173,3 +178,12 @@ class BroadcastLog(Base):
     sent_count: Mapped[int] = mapped_column(Integer, default=0)
     failed_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+

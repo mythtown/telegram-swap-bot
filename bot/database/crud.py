@@ -13,6 +13,7 @@ from bot.database.models import (
     StudentLead,
     SwapDeal,
     SwapLead,
+    SystemSetting,
     User,
     utc_now,
 )
@@ -263,11 +264,13 @@ async def save_or_update_creative(
     gift_name: Optional[str] = None,
     gift_text_content: Optional[str] = None,
     gift_title: str = "Exclusive Study Materials",
+    creative_type: str = "text",
 ) -> Creative:
     creative = await get_creative_by_channel(session, channel_id)
     if not creative:
         creative = Creative(
             channel_id=channel_id,
+            creative_type=creative_type,
             ad_text=ad_text,
             media_type=media_type,
             media_file_id=media_file_id,
@@ -280,6 +283,7 @@ async def save_or_update_creative(
         )
         session.add(creative)
     else:
+        creative.creative_type = creative_type
         creative.ad_text = ad_text
         creative.media_type = media_type
         creative.media_file_id = media_file_id
@@ -787,3 +791,95 @@ async def get_global_stats(session: AsyncSession) -> dict:
         "completed_deals": completed_deals,
         "total_leads": total_leads,
     }
+
+
+# ===================== SYSTEM SETTINGS =====================
+
+async def get_system_setting(session: AsyncSession, key: str, default: str = "") -> str:
+    stmt = select(SystemSetting).where(SystemSetting.key == key)
+    res = await session.execute(stmt)
+    setting = res.scalar_one_or_none()
+    return setting.value if setting else default
+
+
+async def set_system_setting(session: AsyncSession, key: str, value: str) -> SystemSetting:
+    stmt = select(SystemSetting).where(SystemSetting.key == key)
+    res = await session.execute(stmt)
+    setting = res.scalar_one_or_none()
+    if setting:
+        setting.value = value
+    else:
+        setting = SystemSetting(key=key, value=value)
+        session.add(setting)
+    await session.commit()
+    await session.refresh(setting)
+    return setting
+
+
+# ===================== REFERRAL SYSTEM (ANTI-NAKRUTKA) =====================
+
+async def record_referral_invitation(
+    session: AsyncSession,
+    new_user_id: int,
+    referrer_id: int,
+) -> bool:
+    """Anti-Nakrutka: Records an invite if new_user is not self, has no referrer, and referrer exists."""
+    if new_user_id == referrer_id:
+        return False
+    user = await get_user(session, new_user_id)
+    if not user or user.referred_by_id:
+        return False
+    referrer = await get_user(session, referrer_id)
+    if not referrer:
+        return False
+
+    user.referred_by_id = referrer_id
+    referrer.referrals_count = (referrer.referrals_count or 0) + 1
+    await session.commit()
+    return True
+
+
+async def check_and_qualify_referral(
+    session: AsyncSession,
+    user_id: int,
+    channel_subscribers: int,
+    min_subs: int = 50,
+) -> Optional[dict]:
+    """Anti-Nakrutka Shield: Referral is ONLY qualified when the invited user binds a real channel with >= min_subs.
+    Returns details if referrer unlocked a VIP reward."""
+    user = await get_user(session, user_id)
+    if not user or not user.referred_by_id or user.has_qualified_referral:
+        return None
+
+    if channel_subscribers < min_subs:
+        return None
+
+    user.has_qualified_referral = True
+    referrer = await get_user(session, user.referred_by_id)
+    if not referrer:
+        await session.commit()
+        return None
+
+    referrer.qualified_referrals_count = (referrer.qualified_referrals_count or 0) + 1
+
+    target_str = await get_system_setting(session, "referral_target", str(config.referral_target))
+    days_str = await get_system_setting(session, "referral_reward_days", str(config.referral_reward_days))
+    target = int(target_str) if target_str.isdigit() else config.referral_target
+    days = int(days_str) if days_str.isdigit() else config.referral_reward_days
+
+    vip_awarded = False
+    if referrer.qualified_referrals_count >= target:
+        await set_user_vip(session, referrer.telegram_id, is_vip=True, days=days)
+        vip_awarded = True
+    else:
+        await session.commit()
+
+    return {
+        "referrer_id": referrer.telegram_id,
+        "referrer_lang": getattr(referrer, "language", "uz") or "uz",
+        "qualified_count": referrer.qualified_referrals_count,
+        "target": target,
+        "days": days,
+        "vip_awarded": vip_awarded,
+    }
+

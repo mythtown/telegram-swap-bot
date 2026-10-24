@@ -8,6 +8,7 @@ from bot.config import config
 from bot.database import crud
 from bot.database.models import SwapDeal
 from bot.database.session import async_session_factory
+from bot.locales.texts import t
 from bot.services import swap_engine
 
 logger = logging.getLogger(__name__)
@@ -173,9 +174,39 @@ async def scan_active_deals_views(bot: Bot) -> int:
                                     chat_id=deal.channel_a.owner_id,
                                     text=earned_a,
                                     reply_markup=markup_a,
-                                )
+                                    )
                             except Exception as e:
                                 logger.warning(f"Could not notify owner A: {e}")
+                    elif msg_b is None or getattr(msg_b, "views", None) is None:
+                        # 🚨 Anti-Cheating: Ad in Channel B was deleted early before reaching target views!
+                        logger.warning(
+                            f"[Anti-Cheating] Ad was deleted early from Channel B ({deal.channel_b.title}) for Deal {deal.id[:8]}!"
+                        )
+                        if not deal.post_a_deleted and deal.post_msg_id_in_a:
+                            await swap_engine.safe_delete_post(bot, deal.channel_a_id, deal.post_msg_id_in_a)
+                            deal.post_a_deleted = True
+                        deal.post_b_deleted = True
+                        deal.status = "CANCELLED"
+                        await session.commit()
+
+                        # Alert Victim (Owner A)
+                        owner_a = await crud.get_user(session, deal.channel_a.owner_id)
+                        lang_a = getattr(owner_a, "language", "uz") or "uz"
+                        alert_a = t("anti_cheat_victim_alert", lang_a, partner=deal.channel_b.title, target=deal.target_views)
+                        try:
+                            await bot.send_message(chat_id=deal.channel_a.owner_id, text=alert_a)
+                        except Exception:
+                            pass
+
+                        # Alert Violator (Owner B)
+                        owner_b = await crud.get_user(session, deal.channel_b.owner_id)
+                        lang_b = getattr(owner_b, "language", "uz") or "uz"
+                        alert_b = t("anti_cheat_violator_alert", lang_b, partner=deal.channel_a.title, target=deal.target_views)
+                        try:
+                            await bot.send_message(chat_id=deal.channel_b.owner_id, text=alert_b)
+                        except Exception:
+                            pass
+                        continue
                 except (ChannelPrivateError, ChatAdminRequiredError):
                     logger.warning(
                         f"[ViewScanner] Scanner @{config.scanner_username} is not in channel {deal.channel_b_id}!"
@@ -218,6 +249,36 @@ async def scan_active_deals_views(bot: Bot) -> int:
                                 )
                             except Exception as e:
                                 logger.warning(f"Could not notify owner B: {e}")
+                    elif msg_a is None or getattr(msg_a, "views", None) is None:
+                        # 🚨 Anti-Cheating: Ad in Channel A was deleted early before reaching target views!
+                        logger.warning(
+                            f"[Anti-Cheating] Ad was deleted early from Channel A ({deal.channel_a.title}) for Deal {deal.id[:8]}!"
+                        )
+                        if not deal.post_b_deleted and deal.post_msg_id_in_b:
+                            await swap_engine.safe_delete_post(bot, deal.channel_b_id, deal.post_msg_id_in_b)
+                            deal.post_b_deleted = True
+                        deal.post_a_deleted = True
+                        deal.status = "CANCELLED"
+                        await session.commit()
+
+                        # Alert Victim (Owner B)
+                        owner_b = await crud.get_user(session, deal.channel_b.owner_id)
+                        lang_b = getattr(owner_b, "language", "uz") or "uz"
+                        alert_b = t("anti_cheat_victim_alert", lang_b, partner=deal.channel_a.title, target=deal.target_views)
+                        try:
+                            await bot.send_message(chat_id=deal.channel_b.owner_id, text=alert_b)
+                        except Exception:
+                            pass
+
+                        # Alert Violator (Owner A)
+                        owner_a = await crud.get_user(session, deal.channel_a.owner_id)
+                        lang_a = getattr(owner_a, "language", "uz") or "uz"
+                        alert_a = t("anti_cheat_violator_alert", lang_a, partner=deal.channel_b.title, target=deal.target_views)
+                        try:
+                            await bot.send_message(chat_id=deal.channel_a.owner_id, text=alert_a)
+                        except Exception:
+                            pass
+                        continue
                 except (ChannelPrivateError, ChatAdminRequiredError):
                     logger.warning(
                         f"[ViewScanner] Scanner @{config.scanner_username} is not in channel {deal.channel_a_id}!"

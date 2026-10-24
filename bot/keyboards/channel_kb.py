@@ -4,10 +4,10 @@ from bot.database.models import Channel
 from bot.locales.texts import t
 
 VIEW_TIERS = [
-    100, 150, 200, 250,
-    300, 350, 400, 500,
-    600, 700, 800, 900,
-    1000, 1500, 2000,
+    50, 100, 150, 200,
+    250, 300, 350, 400,
+    500, 600, 700, 800,
+    900, 1000, 1500, 2000,
 ]
 
 
